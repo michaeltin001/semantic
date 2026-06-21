@@ -22,12 +22,17 @@ const COUNTRIES = [
 
 const UNLOCK_COST = 100
 const TRAVEL_DURATION_MS = 2200
+const DIVE_DURATION_MS = 750
 const GLOBE_RADIUS = 2
 const EARTH_SPIN_SPEED = 0.0009
 const CLOUD_SPIN_SPEED = 0.0015
 
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+}
+
+function easeInCubic(t) {
+  return t * t * t
 }
 
 function latLngToDirection(lat, lng) {
@@ -165,9 +170,13 @@ export default function LandingPage({ onCountrySelect }) {
   const onCountrySelectRef = useRef(onCountrySelect)
   const onChinaMarkerClickRef = useRef(() => {})
 
+  const triggerDiveRef = useRef(() => {})
+
   const [tokens, setTokens] = useState(100)
   const [pendingCountry, setPendingCountry] = useState(null)
   const [isTraveling, setIsTraveling] = useState(false)
+  const [travelLabel, setTravelLabel] = useState('')
+  const [showFlash, setShowFlash] = useState(false)
 
   useEffect(() => {
     onCountrySelectRef.current = onCountrySelect
@@ -192,6 +201,7 @@ export default function LandingPage({ onCountrySelect }) {
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000)
     camera.position.set(0, 0, 6)
+    const baseFov = camera.fov
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -304,7 +314,7 @@ export default function LandingPage({ onCountrySelect }) {
     }
 
     function handlePointerMove(event) {
-      if (travel) return
+      if (travel || dive) return
       updatePointer(event)
       raycaster.setFromCamera(pointerNdc, camera)
       hovered = raycaster.intersectObject(hitMesh).length > 0
@@ -312,7 +322,7 @@ export default function LandingPage({ onCountrySelect }) {
     }
 
     function handleClick(event) {
-      if (travel) return
+      if (travel || dive) return
       updatePointer(event)
       raycaster.setFromCamera(pointerNdc, camera)
       if (raycaster.intersectObject(hitMesh).length > 0) {
@@ -326,11 +336,14 @@ export default function LandingPage({ onCountrySelect }) {
     let travel = null
     let spinPaused = false
 
+    let dive = null
+
     function travelTo(lat, lng, onArrive) {
       spinPaused = true
       controls.enabled = false
       const startDir = camera.position.clone().normalize()
-      const endDir = latLngToDirection(lat, lng).normalize()
+      const localDir = latLngToDirection(lat, lng).normalize()
+      const endDir = localDir.applyQuaternion(planetGroup.quaternion).normalize()
       const rotation = new THREE.Quaternion().setFromUnitVectors(startDir, endDir)
       travel = {
         startTime: performance.now(),
@@ -343,8 +356,20 @@ export default function LandingPage({ onCountrySelect }) {
     }
     triggerTravelRef.current = travelTo
 
+    function diveIn(onDone) {
+      dive = {
+        startTime: performance.now(),
+        startDistance: camera.position.length(),
+        endDistance: GLOBE_RADIUS * 1.3,
+        direction: camera.position.clone().normalize(),
+        startFov: camera.fov,
+        endFov: baseFov + 10,
+        onDone,
+      }
+    }
+    triggerDiveRef.current = diveIn
+
     function stepTravel(now) {
-      if (!travel) return
       const elapsed = now - travel.startTime
       const t = Math.min(elapsed / TRAVEL_DURATION_MS, 1)
       const eased = easeInOutCubic(t)
@@ -360,6 +385,23 @@ export default function LandingPage({ onCountrySelect }) {
         travel = null
         controls.target.set(0, 0, 0)
         controls.update()
+        finishedCallback?.()
+      }
+    }
+
+    function stepDive(now) {
+      const elapsed = now - dive.startTime
+      const t = Math.min(elapsed / DIVE_DURATION_MS, 1)
+      const eased = easeInCubic(t)
+      const distance = dive.startDistance + (dive.endDistance - dive.startDistance) * eased
+      camera.position.copy(dive.direction.clone().multiplyScalar(distance))
+      camera.lookAt(0, 0, 0)
+      camera.fov = dive.startFov + (dive.endFov - dive.startFov) * eased
+      camera.updateProjectionMatrix()
+
+      if (t >= 1) {
+        const finishedCallback = dive.onDone
+        dive = null
         controls.enabled = true
         finishedCallback?.()
       }
@@ -393,11 +435,10 @@ export default function LandingPage({ onCountrySelect }) {
         ring.material.opacity = (1 - phase) * (hovered ? 0.85 : 0.45)
       })
 
-      if (travel) {
-        stepTravel(performance.now())
-      } else {
-        controls.update()
-      }
+      if (travel) stepTravel(performance.now())
+      if (dive) stepDive(performance.now())
+      if (!travel && !dive) controls.update()
+
       renderer.render(scene, camera)
     }
     animate()
@@ -425,9 +466,15 @@ export default function LandingPage({ onCountrySelect }) {
     setTokens((t) => t - UNLOCK_COST)
     setPendingCountry(null)
     setIsTraveling(true)
+    setTravelLabel(`Flying to ${country.name}…`)
     triggerTravelRef.current(country.lat, country.lng, () => {
-      setIsTraveling(false)
-      onCountrySelectRef.current?.(country.name)
+      setTravelLabel('Arriving…')
+      triggerDiveRef.current(() => {
+        setShowFlash(true)
+        window.setTimeout(() => {
+          onCountrySelectRef.current?.(country.name)
+        }, 500)
+      })
     })
   }
 
@@ -490,9 +537,9 @@ export default function LandingPage({ onCountrySelect }) {
         </ul>
       </aside>
 
-      {isTraveling && (
+      {isTraveling && !showFlash && (
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 px-5 py-2 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-sm tracking-wide animate-pulse pointer-events-none">
-          Traveling to {pendingCountry?.name ?? 'destination'}...
+          {travelLabel}
         </div>
       )}
 
@@ -525,6 +572,10 @@ export default function LandingPage({ onCountrySelect }) {
             </div>
           </div>
         </div>
+      )}
+
+      {showFlash && (
+        <div className="absolute inset-0 bg-white animate-cinematic-flash pointer-events-none" />
       )}
     </div>
   )
