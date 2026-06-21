@@ -208,15 +208,35 @@ export default function LandingPage({ onCountrySelect }) {
       cloudMaterial.needsUpdate = true
     })
 
-    const glowGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.18, 64, 64)
-    const glowMaterial = new THREE.MeshBasicMaterial({
-      color: 0x4ea8ff,
+    const atmosphereGeometry = new THREE.SphereGeometry(GLOBE_RADIUS * 1.22, 64, 64)
+    const atmosphereMaterial = new THREE.ShaderMaterial({
+      uniforms: { glowColor: { value: new THREE.Color(0x4fc3ff) } },
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        void main() {
+          vNormal = normalize(normalMatrix * normal);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          vViewDir = normalize(-mvPosition.xyz);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        uniform vec3 glowColor;
+        void main() {
+          float intensity = pow(0.65 - dot(vNormal, vViewDir), 3.0);
+          gl_FragColor = vec4(glowColor, clamp(intensity, 0.0, 1.0) * 1.5);
+        }
+      `,
       transparent: true,
-      opacity: 0.18,
+      blending: THREE.AdditiveBlending,
       side: THREE.BackSide,
+      depthWrite: false,
     })
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial)
-    scene.add(glow)
+    const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial)
+    scene.add(atmosphere)
 
     let travel = null
     let spinPaused = false
@@ -296,8 +316,8 @@ export default function LandingPage({ onCountrySelect }) {
       globeMaterial.dispose()
       cloudGeometry.dispose()
       cloudMaterial.dispose()
-      glowGeometry.dispose()
-      glowMaterial.dispose()
+      atmosphereGeometry.dispose()
+      atmosphereMaterial.dispose()
       mount.removeChild(renderer.domElement)
     }
   }, [])
