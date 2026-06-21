@@ -296,13 +296,12 @@ export default function LandingPage({ onCountrySelect }) {
         varying vec3 vViewDir;
         uniform vec3 glowColor;
         void main() {
-          float intensity = pow(0.65 - dot(vNormal, vViewDir), 3.0);
-          gl_FragColor = vec4(glowColor, clamp(intensity, 0.0, 1.0) * 1.5);
+          float intensity = pow(0.58 - dot(vNormal, vViewDir), 4.0);
+          gl_FragColor = vec4(glowColor, clamp(intensity, 0.0, 1.0));
         }
       `,
       transparent: true,
       blending: THREE.AdditiveBlending,
-      side: THREE.BackSide,
       depthWrite: false,
     })
     const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial)
