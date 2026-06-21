@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import LandingPage from './LandingPage'
 import ScenariosPage from './ScenariosPage'
 import VoiceTestPage from './pages/VoiceTestPage'
-import InputPhase from './components/InputPhase'
-import GameplayPhase from './components/GameplayPhase'
+import ScenarioRunner from './components/ScenarioRunner'
 import { API } from './api'
 
 function App() {
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [activeScenario, setActiveScenario] = useState(null)
-  const [inputPhaseComplete, setInputPhaseComplete] = useState(false)
   const [completedScenarios, setCompletedScenarios] = useState([])
   const [tokens, setTokens] = useState(0)
   const [unlockedCountries, setUnlockedCountries] = useState([])
@@ -72,39 +70,25 @@ function App() {
   }
 
   if (activeScenario) {
-    if (!inputPhaseComplete) {
-      return (
-        <div className="w-screen h-screen flex flex-col items-center justify-center gap-4 bg-[#0F1418] text-white font-sans animate-fade-in-up">
-          <InputPhase 
-            scenario={activeScenario} 
-            onComplete={() => setInputPhaseComplete(true)} 
-          />
-        </div>
-      )
-    }
-
     return (
-      <div className="w-screen h-screen bg-[#0F1418] font-sans">
-        <GameplayPhase 
-          scenario={activeScenario}
-          onEndScenario={async (result) => {
-            if (result?.completed && result?.id && !completedScenarios.includes(result.id)) {
-              setCompletedScenarios([...completedScenarios, result.id]);
-              try {
-                await fetch(`${API}/api/user/complete-scenario`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ scenarioId: result.id })
-                });
-              } catch (e) {
-                console.error(e);
-              }
+      <ScenarioRunner 
+        scenario={activeScenario}
+        onEndScenario={async (result) => {
+          if (result?.completed && result?.id && !completedScenarios.includes(result.id)) {
+            setCompletedScenarios([...completedScenarios, result.id]);
+            try {
+              await fetch(`${API}/api/user/complete-scenario`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scenarioId: result.id })
+              });
+            } catch (e) {
+              console.error(e);
             }
-            setActiveScenario(null);
-            setInputPhaseComplete(false);
-          }}
-        />
-      </div>
+          }
+          setActiveScenario(null);
+        }}
+      />
     )
   }
 

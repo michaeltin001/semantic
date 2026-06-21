@@ -1,11 +1,12 @@
-import { embed, embedMany } from 'ai';
+import { embed } from 'ai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { GEMINI_API_KEY } from '../config.js';
 
 const google = createGoogleGenerativeAI({
   apiKey: GEMINI_API_KEY,
 });
-import { db, getWordsByIds } from '../db/db.js';
+import { db } from '../db/db.js';
+import { retrievability, reviewPriority } from '../srs/fsrs_metrics.js';
 
 // Calculate cosine similarity between two vectors
 export function cosineSimilarity(a, b) {
@@ -21,10 +22,9 @@ export function cosineSimilarity(a, b) {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
-// Generate embedding for text
 export async function generateEmbedding(text) {
   const { embedding } = await embed({
-    model: google.textEmbeddingModel('text-embedding-004'),
+    model: google.textEmbeddingModel('gemini-embedding-2'),
     value: text,
   });
   return embedding;
@@ -38,7 +38,7 @@ export async function getWordEmbedding(wordId, text) {
   }
   
   const embedding = await generateEmbedding(text);
-  db.prepare('INSERT INTO word_embeddings (word_id, embedding_json) VALUES (?, ?)').run(wordId, JSON.stringify(embedding));
+  db.prepare('INSERT OR IGNORE INTO word_embeddings (word_id, embedding_json) VALUES (?, ?)').run(wordId, JSON.stringify(embedding));
   return embedding;
 }
 
@@ -53,34 +53,54 @@ export function loadAllEmbeddings() {
 }
 
 /**
- * Intersection Filter algorithm
- * Discovers optimal words for a scenario by ranking words that are:
- * 1. Conceptually related to the scenario topic
- * 2. Semantically "close" to the user's existing known words (anchors)
+ * Discovery Algorithm:
+ * Mixes "due" review words with "new" words via Intersection Filter.
  */
-export async function getOptimalWordsForScenario(scenarioTopic, count = 3) {
-  // 1. Get embedding for the scenario concept
+export async function getDiscoveryWords(scenarioTopic, limit = 4) {
+  // 1. Due filter for known words
+  const knownWordsRows = db.prepare('SELECT * FROM words WHERE reps > 0').all();
+  
+  const dueWords = knownWordsRows
+    .map(w => {
+      const r = retrievability({ 
+        stability: w.stability, 
+        last_review_at: w.last_review_at 
+      });
+      return { ...w, r, priority: reviewPriority({ retrievability: r, difficulty: w.difficulty, lapses: w.lapses }) };
+    })
+    .filter(w => w.r < 0.9)
+    .sort((a, b) => b.priority - a.priority);
+
+  // Take up to 2 due words
+  const selectedDue = dueWords.slice(0, 2);
+  const remainingSlots = limit - selectedDue.length;
+
+  const sanitize = w => { delete w.r; delete w.priority; return w; };
+  if (remainingSlots <= 0) return selectedDue.map(sanitize);
+
+  // 2. Intersection filter for new words
   const scenarioEmbedding = await generateEmbedding(scenarioTopic);
   
-  // 2. Identify user's "known anchors" (high stability words)
-  const knownWords = db.prepare('SELECT id, expression, meaning FROM words WHERE stability >= 2').all();
+  // Identify user's known anchors (high stability words)
+  const anchorWords = db.prepare('SELECT id, expression, meaning FROM words WHERE stability >= 2').all();
   
-  // 3. Get all "unknown/new" words
-  const unknownWords = db.prepare('SELECT id, expression, meaning FROM words WHERE state = 0').all();
+  const unknownWords = db.prepare('SELECT * FROM words WHERE reps = 0').all();
   
-  if (unknownWords.length === 0) return [];
+  if (unknownWords.length === 0) {
+    return selectedDue.map(sanitize);
+  }
   
-  // 4. Ensure we have embeddings for unknown words
+  // Ensure we have embeddings for unknown words
   for (const word of unknownWords) {
     await getWordEmbedding(word.id, `${word.expression} (${word.meaning})`);
   }
-  // Ensure we have embeddings for known words
-  for (const word of knownWords) {
+  // Ensure we have embeddings for known anchor words
+  for (const word of anchorWords) {
     await getWordEmbedding(word.id, `${word.expression} (${word.meaning})`);
   }
   
   const allEmbeddings = loadAllEmbeddings();
-  const knownEmbeddings = knownWords.map(w => allEmbeddings.get(w.id)).filter(Boolean);
+  const anchorEmbeddings = anchorWords.map(w => allEmbeddings.get(w.id)).filter(Boolean);
   
   const candidates = [];
   
@@ -91,20 +111,21 @@ export async function getOptimalWordsForScenario(scenarioTopic, count = 3) {
     // Similarity to scenario
     const scenarioRelevance = cosineSimilarity(wordEmbedding, scenarioEmbedding);
     
-    // Proximity to closest known anchor (defaults to 0 if no anchors exist yet)
+    // Proximity to closest known anchor
     let anchorProximity = 0;
-    if (knownEmbeddings.length > 0) {
-      anchorProximity = Math.max(...knownEmbeddings.map(anchorEmb => cosineSimilarity(wordEmbedding, anchorEmb)));
+    if (anchorEmbeddings.length > 0) {
+      anchorProximity = Math.max(...anchorEmbeddings.map(anchorEmb => cosineSimilarity(wordEmbedding, anchorEmb)));
     }
     
-    // Combined Score: weights can be adjusted. We want high relevance to scenario AND high proximity to anchors.
+    // Combined Score: weights can be adjusted.
     const combinedScore = (scenarioRelevance * 0.7) + (anchorProximity * 0.3);
     
-    candidates.push({ word, scenarioRelevance, anchorProximity, combinedScore });
+    candidates.push({ word, combinedScore });
   }
   
   // Sort by combined score descending
   candidates.sort((a, b) => b.combinedScore - a.combinedScore);
   
-  return candidates.slice(0, count).map(c => c.word);
+  const selectedNew = candidates.slice(0, remainingSlots).map(c => c.word);
+  return [...selectedDue.map(sanitize), ...selectedNew];
 }

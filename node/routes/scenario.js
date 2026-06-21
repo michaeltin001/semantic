@@ -6,7 +6,8 @@ const google = createGoogleGenerativeAI({
   apiKey: GEMINI_API_KEY,
 });
 import { db } from '../lib/db/db.js';
-import { getOptimalWordsForScenario } from '../lib/graph/graph.js';
+import { getDiscoveryWords } from '../lib/graph/graph.js';
+import { updateWordFSRS } from '../lib/srs/fsrs_update.js';
 
 export function mountScenarioRoutes(app) {
   
@@ -14,7 +15,14 @@ export function mountScenarioRoutes(app) {
   app.get('/api/scenario/discovery', async (req, res) => {
     try {
       const { scenarioId, topic } = req.query;
-      const words = await getOptimalWordsForScenario(topic || scenarioId, 4);
+      const dbWords = await getDiscoveryWords(topic || scenarioId, 4);
+      const words = dbWords.map(w => ({
+        ...w,
+        zh: w.expression,
+        pinyin: w.reading,
+        en: w.meaning
+      }));
+      console.log(`[Discovery] Dynamically selected words for "${topic || scenarioId}":`, words.map(w => w.zh).join(', '));
       res.json({ words });
     } catch (e) {
       console.error(e);
@@ -88,13 +96,11 @@ Return ONLY a JSON object:
       const match = text.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : { status: "failed", feedback: "Could not evaluate.", usedWord: null };
 
-      // If passed, we could update FSRS ratings here for the usedWord.
+      // If passed, we update FSRS ratings for the usedWord.
       if (parsed.status === "passed" && parsed.usedWord) {
-        // Find word in DB and update (simplified)
         const wordRow = db.prepare('SELECT id FROM words WHERE expression = ?').get(parsed.usedWord);
         if (wordRow) {
-          db.prepare('UPDATE words SET reps = reps + 1, last_review_at = CURRENT_TIMESTAMP WHERE id = ?').run(wordRow.id);
-          db.prepare('INSERT INTO review_logs (word_id, rating, state) VALUES (?, ?, ?)').run(wordRow.id, 3, 1);
+          updateWordFSRS(db, wordRow.id, 3); // 3 = Good
         }
       }
 

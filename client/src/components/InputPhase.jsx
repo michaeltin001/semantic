@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function InputPhase({ scenario, onComplete }) {
-  const [words, setWords] = useState(scenario.vocab.slice(0, 4));
+export default function InputPhase({ words, onComplete }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
