@@ -94,3 +94,80 @@ body {
 .animate-country-glow {
   animation: country-glow 1.8s ease-in-out infinite;
 }
+
+@keyframes level-up-flash {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 200, 0, 0);
+  }
+  30% {
+    transform: scale(1.18);
+    box-shadow: 0 0 24px 6px rgba(255, 200, 0, 0.75);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 200, 0, 0);
+  }
+}
+
+.animate-level-up {
+  animation: level-up-flash 0.7s ease-out;
+}
+
+@keyframes word-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.animate-word-reveal {
+  animation: word-reveal 0.4s ease-out both;
+}
+
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.5) rotate(-12deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.88) rotate(4deg);
+  }
+  78% {
+    transform: scale(1.06) rotate(-1.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.animate-stamp {
+  animation: stamp-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes token-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.75) translateY(12px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.06) translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-token-pop {
+  animation: token-pop 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
