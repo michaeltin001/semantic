@@ -82,28 +82,6 @@ function createStarField() {
   return new THREE.Points(geometry, material)
 }
 
-function createNebulaField() {
-  const group = new THREE.Group()
-  const blobs = [
-    { color: 'rgba(99,102,241,0.55)', pos: [-55, 22, -95], scale: 120 },
-    { color: 'rgba(34,211,238,0.4)', pos: [62, -28, -115], scale: 140 },
-    { color: 'rgba(244,114,182,0.35)', pos: [-32, -48, -75], scale: 95 },
-  ]
-  blobs.forEach(({ color, pos, scale }) => {
-    const material = new THREE.SpriteMaterial({
-      map: createRadialTexture(color),
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    })
-    const sprite = new THREE.Sprite(material)
-    sprite.position.set(...pos)
-    sprite.scale.set(scale, scale, 1)
-    group.add(sprite)
-  })
-  return group
-}
-
 function createChinaMarker() {
   const group = new THREE.Group()
   const direction = latLngToDirection(CHINA.lat, CHINA.lng).normalize()
@@ -225,7 +203,6 @@ export default function LandingPage({ onCountrySelect }) {
 
     const deepSpace = new THREE.Group()
     deepSpace.add(createStarField())
-    deepSpace.add(createNebulaField())
     scene.add(deepSpace)
 
     const ambientLight = new THREE.AmbientLight(0x3b4a6b, 1.4)
