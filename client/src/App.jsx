@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react'
 import LandingPage from './LandingPage'
 import ScenariosPage from './ScenariosPage'
 import VoiceTestPage from './pages/VoiceTestPage'
+import { UNLOCK_COST } from './gameData'
+
+const STARTING_TOKENS = 100
 
 function App() {
   const [selectedCountry, setSelectedCountry] = useState(null)
   const [activeScenario, setActiveScenario] = useState(null)
   const [hash, setHash] = useState(window.location.hash)
+  const [tokens, setTokens] = useState(STARTING_TOKENS)
+  const [unlockedCountries, setUnlockedCountries] = useState(['China'])
+  const [glowCountry, setGlowCountry] = useState(null)
 
   useEffect(() => {
     const onHashChange = () => setHash(window.location.hash);
@@ -16,6 +22,16 @@ function App() {
 
   if (hash === '#test') {
     return <VoiceTestPage />
+  }
+
+  function handleUnlockCountry(country) {
+    setTokens((t) => t - UNLOCK_COST)
+    setUnlockedCountries((list) => (list.includes(country.name) ? list : [...list, country.name]))
+  }
+
+  function handleSelectCountry(countryName) {
+    setGlowCountry((current) => (current === countryName ? null : current))
+    setSelectedCountry(countryName)
   }
 
   if (activeScenario) {
@@ -45,7 +61,15 @@ function App() {
     )
   }
 
-  return <LandingPage onCountrySelect={(country) => setSelectedCountry(country)} />
+  return (
+    <LandingPage
+      tokens={tokens}
+      unlockedCountries={unlockedCountries}
+      glowCountry={glowCountry}
+      onUnlockCountry={handleUnlockCountry}
+      onCountrySelect={handleSelectCountry}
+    />
+  )
 }
 
 export default App

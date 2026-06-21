@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { CHINA, COUNTRIES, UNLOCK_COST } from './gameData'
 
 const EARTH_TEXTURE_URL =
   'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
@@ -8,19 +9,6 @@ const CLOUDS_TEXTURE_URL =
   'https://threejs.org/examples/textures/planets/earth_clouds_1024.png'
 const SPECULAR_TEXTURE_URL =
   'https://threejs.org/examples/textures/planets/earth_specular_2048.jpg'
-
-const CHINA = { name: 'China', flag: '\u{1F1E8}\u{1F1F3}', lat: 35.8617, lng: 104.1954, unlocked: true }
-
-const COUNTRIES = [
-  CHINA,
-  { name: 'Japan', flag: '\u{1F1EF}\u{1F1F5}', lat: 36.2048, lng: 138.2529, unlocked: false },
-  { name: 'France', flag: '\u{1F1EB}\u{1F1F7}', lat: 46.2276, lng: 2.2137, unlocked: false },
-  { name: 'Mexico', flag: '\u{1F1F2}\u{1F1FD}', lat: 23.6345, lng: -102.5528, unlocked: false },
-  { name: 'Egypt', flag: '\u{1F1EA}\u{1F1EC}', lat: 26.8206, lng: 30.8025, unlocked: false },
-  { name: 'Brazil', flag: '\u{1F1E7}\u{1F1F7}', lat: -14.235, lng: -51.9253, unlocked: false },
-]
-
-const UNLOCK_COST = 100
 const TRAVEL_DURATION_MS = 2200
 const DIVE_DURATION_MS = 750
 const GLOBE_RADIUS = 2
@@ -150,7 +138,13 @@ function CoinIcon() {
   )
 }
 
-export default function LandingPage({ onCountrySelect }) {
+export default function LandingPage({
+  tokens,
+  unlockedCountries,
+  glowCountry,
+  onUnlockCountry,
+  onCountrySelect,
+}) {
   const mountRef = useRef(null)
   const triggerTravelRef = useRef(() => {})
   const onCountrySelectRef = useRef(onCountrySelect)
@@ -158,23 +152,47 @@ export default function LandingPage({ onCountrySelect }) {
 
   const triggerDiveRef = useRef(() => {})
 
-  const [tokens, setTokens] = useState(100)
   const [pendingCountry, setPendingCountry] = useState(null)
   const [isTraveling, setIsTraveling] = useState(false)
   const [travelLabel, setTravelLabel] = useState('')
   const [showFlash, setShowFlash] = useState(false)
 
+  const countries = COUNTRIES.map((country) => ({
+    ...country,
+    unlocked: unlockedCountries.includes(country.name),
+  }))
+
   useEffect(() => {
     onCountrySelectRef.current = onCountrySelect
   }, [onCountrySelect])
 
+  function runTravelSequence(country) {
+    setIsTraveling(true)
+    setTravelLabel(`Flying to ${country.name}…`)
+    triggerTravelRef.current(country.lat, country.lng, () => {
+      setTravelLabel('Arriving…')
+      triggerDiveRef.current(() => {
+        setShowFlash(true)
+        window.setTimeout(() => {
+          onCountrySelectRef.current?.(country.name)
+        }, 500)
+      })
+    })
+  }
+
   function handleSelectCountry(country) {
-    if (!country.unlocked || isTraveling || tokens < UNLOCK_COST) return
+    if (isTraveling) return
+    if (country.unlocked) {
+      runTravelSequence(country)
+      return
+    }
+    if (tokens < UNLOCK_COST) return
     setPendingCountry(country)
   }
 
   useEffect(() => {
-    onChinaMarkerClickRef.current = () => handleSelectCountry(CHINA)
+    onChinaMarkerClickRef.current = () =>
+      handleSelectCountry({ ...CHINA, unlocked: unlockedCountries.includes(CHINA.name) })
   })
 
   useEffect(() => {
@@ -447,19 +465,9 @@ export default function LandingPage({ onCountrySelect }) {
   function handleConfirmUnlock() {
     const country = pendingCountry
     if (!country) return
-    setTokens((t) => t - UNLOCK_COST)
     setPendingCountry(null)
-    setIsTraveling(true)
-    setTravelLabel(`Flying to ${country.name}…`)
-    triggerTravelRef.current(country.lat, country.lng, () => {
-      setTravelLabel('Arriving…')
-      triggerDiveRef.current(() => {
-        setShowFlash(true)
-        window.setTimeout(() => {
-          onCountrySelectRef.current?.(country.name)
-        }, 500)
-      })
-    })
+    onUnlockCountry?.(country)
+    runTravelSequence(country)
   }
 
   return (
@@ -479,14 +487,23 @@ export default function LandingPage({ onCountrySelect }) {
           </p>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-[#1F2937] border-2 border-[#37464F] px-5 py-2.5 shadow-md">
-          <CoinIcon />
-          <span className="font-display text-xl font-extrabold tabular-nums text-white">
-            {tokens}
-          </span>
-          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-            tokens
-          </span>
+        <div className="pointer-events-auto flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full bg-[#1F2937] border-2 border-[#37464F] px-4 py-2.5 shadow-md">
+            <span className="text-lg">{'\u{1F30D}'}</span>
+            <span className="font-display text-sm font-extrabold text-white">
+              Level {unlockedCountries.length}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5 rounded-full bg-[#1F2937] border-2 border-[#37464F] px-5 py-2.5 shadow-md">
+            <CoinIcon />
+            <span className="font-display text-xl font-extrabold tabular-nums text-white">
+              {tokens}
+            </span>
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              tokens
+            </span>
+          </div>
         </div>
       </header>
 
@@ -495,17 +512,24 @@ export default function LandingPage({ onCountrySelect }) {
           Choose a Country
         </h2>
         <ul className="flex flex-col gap-2">
-          {COUNTRIES.map((country) => (
+          {countries.map((country) => (
             <li key={country.name}>
               <button
                 type="button"
-                disabled={!country.unlocked || isTraveling}
+                disabled={isTraveling || (!country.unlocked && tokens < UNLOCK_COST)}
                 onClick={() => handleSelectCountry(country)}
-                title={country.unlocked ? `Unlock ${country.name}` : 'Coming soon'}
+                title={
+                  country.unlocked
+                    ? `Travel to ${country.name}`
+                    : tokens >= UNLOCK_COST
+                      ? `Unlock ${country.name}`
+                      : 'Not enough tokens'
+                }
                 className={
                   'w-full flex items-center justify-between rounded-2xl px-3 py-2.5 text-left transition-all duration-150 border-2 ' +
                   (country.unlocked
-                    ? 'bg-[#58CC02] hover:bg-[#61D908] active:translate-y-0.5 cursor-pointer text-white font-extrabold border-[#46A302] border-b-4 active:border-b-2'
+                    ? 'bg-[#58CC02] hover:bg-[#61D908] active:translate-y-0.5 cursor-pointer text-white font-extrabold border-[#46A302] border-b-4 active:border-b-2' +
+                      (glowCountry === country.name ? ' animate-country-glow' : '')
                     : 'bg-[#1F2937] text-gray-600 cursor-not-allowed border-[#37464F]')
                 }
               >
