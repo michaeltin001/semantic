@@ -31,8 +31,22 @@ function latLngToDirection(lat, lng) {
   )
 }
 
+function createRadialTexture(innerColor, outerColor = 'rgba(0,0,0,0)') {
+  const size = 128
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2)
+  gradient.addColorStop(0, innerColor)
+  gradient.addColorStop(1, outerColor)
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, size, size)
+  return new THREE.CanvasTexture(canvas)
+}
+
 function createStarField() {
-  const starCount = 2400
+  const starCount = 2600
   const positions = new Float32Array(starCount * 3)
   for (let i = 0; i < starCount; i++) {
     const radius = 60 + Math.random() * 140
@@ -49,9 +63,31 @@ function createStarField() {
     size: 0.6,
     sizeAttenuation: true,
     transparent: true,
-    opacity: 0.8,
+    opacity: 0.85,
   })
   return new THREE.Points(geometry, material)
+}
+
+function createNebulaField() {
+  const group = new THREE.Group()
+  const blobs = [
+    { color: 'rgba(99,102,241,0.55)', pos: [-55, 22, -95], scale: 120 },
+    { color: 'rgba(34,211,238,0.4)', pos: [62, -28, -115], scale: 140 },
+    { color: 'rgba(244,114,182,0.35)', pos: [-32, -48, -75], scale: 95 },
+  ]
+  blobs.forEach(({ color, pos, scale }) => {
+    const material = new THREE.SpriteMaterial({
+      map: createRadialTexture(color),
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+    const sprite = new THREE.Sprite(material)
+    sprite.position.set(...pos)
+    sprite.scale.set(scale, scale, 1)
+    group.add(sprite)
+  })
+  return group
 }
 
 function LockIcon() {
@@ -112,7 +148,10 @@ export default function LandingPage({ onCountrySelect }) {
     controls.autoRotate = true
     controls.autoRotateSpeed = 0.6
 
-    scene.add(createStarField())
+    const deepSpace = new THREE.Group()
+    deepSpace.add(createStarField())
+    deepSpace.add(createNebulaField())
+    scene.add(deepSpace)
 
     const ambientLight = new THREE.AmbientLight(0x3b4a6b, 1.4)
     const sunLight = new THREE.DirectionalLight(0xffffff, 1.6)
@@ -202,6 +241,8 @@ export default function LandingPage({ onCountrySelect }) {
     let frameId
     function animate() {
       frameId = requestAnimationFrame(animate)
+      deepSpace.rotation.y += 0.00012
+      deepSpace.rotation.x += 0.00004
       if (travel) {
         stepTravel(performance.now())
       } else {
