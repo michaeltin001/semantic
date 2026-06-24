@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import MicrophoneRecorder from './MicrophoneRecorder';
 import { API } from '../api';
+import { getTheme } from '../dynamicTheme';
 
-export default function GameplayPhase({ scenario, targetWords, onEndScenario }) {
+export default function GameplayPhase({ scenario, targetWords, langCode = 'zh', country = 'China', onEndScenario }) {
+  const theme = getTheme(country);
   const [state, setState] = useState('generating'); // generating, npc_turn, user_turn, evaluating, feedback, scenario_complete
   const [npcLine, setNpcLine] = useState(null);
   const [userResponse, setUserResponse] = useState('');
@@ -27,7 +29,8 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
         body: JSON.stringify({
           scenarioContext: scenario.title,
           targetWords,
-          previousTurns
+          previousTurns,
+          langCode
         }),
         signal
       });
@@ -46,7 +49,8 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
   const playNpcAudio = () => {
     if (!npcLine) return;
     const utterance = new SpeechSynthesisUtterance(npcLine.zh);
-    utterance.lang = 'zh-CN';
+    const voiceLangs = { hi: 'hi-IN', fr: 'fr-FR', es: 'es-MX', zh: 'zh-CN' };
+    utterance.lang = voiceLangs[langCode] || 'zh-CN';
     window.speechSynthesis.speak(utterance);
   };
 
@@ -62,7 +66,8 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
           scenarioContext: scenario.title,
           targetWords,
           npcLine,
-          userResponse: transcript
+          userResponse: transcript,
+          langCode
         }),
       });
       const result = await response.json();
@@ -102,24 +107,24 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
   };
 
   return (
-    <div className="flex flex-col h-full w-full max-w-lg mx-auto py-8 px-4 animate-fade-in-up">
+    <div className={`flex flex-col h-full w-full max-w-lg mx-auto py-8 px-4 animate-fade-in-up ${theme.bgApp} ${theme.textPrimary}`}>
       {/* Header */}
       <div className="flex flex-col mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-extrabold text-2xl text-white flex items-center gap-2">
-            <span>{scenario.icon}</span> {scenario.title}
+          <h2 className={`${theme.font} font-extrabold text-2xl ${theme.textPrimary} flex items-center gap-2`}>
+            <span className="text-2xl">{scenario.icon}</span> {scenario.title}
           </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={handleDevSkip}
               title="Dev Skip Turn"
-              className="text-gray-400 font-bold text-sm bg-[#1F2937] px-3 py-1.5 rounded-xl border-2 border-[#37464F] hover:text-[#1CB0F6] hover:border-[#1CB0F6] transition-colors flex items-center justify-center"
+              className={`flex h-[46px] w-[46px] items-center justify-center rounded-2xl border-2 ${theme.border} ${theme.bgPanel} ${theme.textSecondary} transition-all hover:${theme.borderAccent} hover:bg-black/20 hover:${theme.textAccent}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
             </button>
             <button
               onClick={() => onEndScenario()}
-              className="text-gray-400 font-bold text-sm bg-[#1F2937] px-3 py-1.5 rounded-xl border-2 border-[#37464F] hover:text-white transition-colors"
+              className={`flex h-[46px] items-center justify-center rounded-2xl border-2 ${theme.border} ${theme.bgPanel} px-4 ${theme.font} text-sm font-extrabold uppercase tracking-widest ${theme.textSecondary} transition-all hover:bg-black/20 hover:${theme.textPrimary} shadow-md`}
             >
               Quit
             </button>
@@ -127,9 +132,9 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full h-3 bg-[#1F2937] rounded-full overflow-hidden border-2 border-[#37464F]">
+        <div className={`w-full h-3 ${theme.bgPanel} rounded-full overflow-hidden border-2 ${theme.border}`}>
           <div
-            className="h-full bg-[#58CC02] transition-all duration-500 ease-out"
+            className={`h-full ${theme.bgAccent} transition-all duration-500 ease-out`}
             style={{ width: `${(turnsCompleted / TOTAL_TURNS) * 100}%` }}
           />
         </div>
@@ -139,7 +144,7 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
       {state !== 'scenario_complete' && (
         <div className="flex gap-2 mb-8 flex-wrap">
           {targetWords.map(w => (
-            <div key={w.en} className={`px-3 py-1 rounded-lg text-xs font-bold border-2 ${feedback?.status === 'passed' && feedback.usedWord === w.expression ? 'bg-[#58CC02]/20 border-[#58CC02] text-[#58CC02]' : 'bg-[#1F2937] border-[#37464F] text-gray-400'}`}>
+            <div key={w.en} className={`px-3 py-1 rounded-lg text-xs font-bold border-2 ${feedback?.status === 'passed' && feedback.usedWord === w.expression ? `${theme.bgAccentMuted} ${theme.borderAccent} ${theme.textAccent}` : `${theme.bgPanel} ${theme.border} ${theme.textSecondary}`}`}>
               {w.zh}
             </div>
           ))}
@@ -231,7 +236,7 @@ export default function GameplayPhase({ scenario, targetWords, onEndScenario }) 
       )}
 
       {state === 'user_turn' && (
-        <MicrophoneRecorder onRecordingComplete={handleRecordingComplete} />
+        <MicrophoneRecorder langCode={langCode} onRecordingComplete={handleRecordingComplete} />
       )}
 
       {/* Win Screen */}

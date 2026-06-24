@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { getTheme } from '../dynamicTheme';
 
-export default function InputPhase({ words, onComplete }) {
+export default function InputPhase({ words, langCode = 'zh', country = 'China', onComplete }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(false);
 
@@ -8,6 +9,7 @@ export default function InputPhase({ words, onComplete }) {
   // /api/scenario/discovery?scenarioId=...
   
   const currentWord = words[currentIndex];
+  const theme = getTheme(country);
   
   const handleNext = () => {
     if (currentIndex < words.length - 1) {
@@ -20,7 +22,8 @@ export default function InputPhase({ words, onComplete }) {
   const playAudio = () => {
     // Basic text-to-speech fallback
     const utterance = new SpeechSynthesisUtterance(currentWord.zh);
-    utterance.lang = 'zh-CN';
+    const voiceLangs = { hi: 'hi-IN', fr: 'fr-FR', es: 'es-MX', zh: 'zh-CN' };
+    utterance.lang = voiceLangs[langCode] || 'zh-CN';
     window.speechSynthesis.speak(utterance);
   };
 
@@ -49,13 +52,13 @@ export default function InputPhase({ words, onComplete }) {
           </svg>
         </button>
 
-        <span className="text-6xl font-display font-extrabold text-white mb-4">
+        <span className={`text-6xl ${theme.font} font-extrabold ${theme.textPrimary} mb-4`}>
           {currentWord.zh}
         </span>
-        <span className="text-xl text-[#1CB0F6] font-bold italic mb-6">
+        <span className={`text-xl ${theme.textAccent} font-bold italic mb-6`}>
           {currentWord.pinyin}
         </span>
-        <span className="text-lg text-gray-300 font-medium text-center">
+        <span className={`text-lg ${theme.textSecondary} font-medium text-center`}>
           {currentWord.en}
         </span>
       </div>
@@ -63,7 +66,7 @@ export default function InputPhase({ words, onComplete }) {
       <button
         type="button"
         onClick={handleNext}
-        className="w-full py-3.5 rounded-2xl bg-[#58CC02] hover:bg-[#61D908] border-2 border-[#46A302] border-b-4 active:border-b-2 active:translate-y-0.5 transition-all text-white font-display font-extrabold uppercase tracking-wide text-lg"
+        className={`w-full py-3.5 rounded-2xl ${theme.bgAccent} ${theme.bgAccentHover} border-2 ${theme.borderAccent} border-b-4 active:border-b-2 active:translate-y-0.5 transition-all ${theme.textPrimary} ${theme.font} font-extrabold uppercase tracking-wide text-lg`}
       >
         {currentIndex < words.length - 1 ? 'Continue' : 'Start Scenario'}
       </button>

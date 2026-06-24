@@ -56,9 +56,9 @@ export function loadAllEmbeddings() {
  * Discovery Algorithm:
  * Mixes "due" review words with "new" words via Intersection Filter.
  */
-export async function getDiscoveryWords(scenarioTopic, limit = 4) {
+export async function getDiscoveryWords(scenarioTopic, limit = 4, langCode = 'zh') {
   // 1. Due filter for known words
-  const knownWordsRows = db.prepare('SELECT * FROM words WHERE reps > 0').all();
+  const knownWordsRows = db.prepare('SELECT * FROM words WHERE reps > 0 AND language = ?').all(langCode);
   
   const dueWords = knownWordsRows
     .map(w => {
@@ -82,9 +82,9 @@ export async function getDiscoveryWords(scenarioTopic, limit = 4) {
   const scenarioEmbedding = await generateEmbedding(scenarioTopic);
   
   // Identify user's known anchors (high stability words)
-  const anchorWords = db.prepare('SELECT id, expression, meaning FROM words WHERE stability >= 2').all();
+  const anchorWords = db.prepare('SELECT id, expression, meaning FROM words WHERE stability >= 2 AND language = ?').all(langCode);
   
-  const unknownWords = db.prepare('SELECT * FROM words WHERE reps = 0').all();
+  const unknownWords = db.prepare('SELECT * FROM words WHERE reps = 0 AND language = ?').all(langCode);
   
   if (unknownWords.length === 0) {
     return selectedDue.map(sanitize);

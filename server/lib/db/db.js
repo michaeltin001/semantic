@@ -16,11 +16,12 @@ function initDb() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS words (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      expression TEXT UNIQUE NOT NULL,
+      expression TEXT NOT NULL,
       reading TEXT NOT NULL,
       meaning TEXT NOT NULL,
       topic TEXT,
       level TEXT,
+      language TEXT DEFAULT 'zh',
       
       -- FSRS and Memory State
       state INTEGER DEFAULT 0, -- 0: New, 1: Learning, 2: Review, 3: Relearning
@@ -29,7 +30,8 @@ function initDb() {
       lapses INTEGER DEFAULT 0,
       reps INTEGER DEFAULT 0,
       last_review_at DATETIME,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(expression, language)
     );
 
     CREATE TABLE IF NOT EXISTS review_logs (
@@ -66,16 +68,18 @@ function initDb() {
 
   if (count === 0) {
     const insertWord = db.prepare(`
-      INSERT INTO words (expression, reading, meaning, topic, level)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT OR IGNORE INTO words (expression, reading, meaning, topic, level, language)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
     
     const seedTx = db.transaction(() => {
-      for (const [level, words] of Object.entries(STARTER_VOCAB)) {
-        if (!Array.isArray(words)) continue;
-        for (const [expression, reading, meaning, topics] of words) {
-          const topic = Array.isArray(topics) ? topics[0] : topics;
-          insertWord.run(expression, reading, meaning, topic, level);
+      for (const [language, levels] of Object.entries(STARTER_VOCAB)) {
+        for (const [level, words] of Object.entries(levels)) {
+          if (!Array.isArray(words)) continue;
+          for (const [expression, reading, meaning, topics] of words) {
+            const topic = Array.isArray(topics) ? topics[0] : topics;
+            insertWord.run(expression, reading, meaning, topic, level, language);
+          }
         }
       }
       

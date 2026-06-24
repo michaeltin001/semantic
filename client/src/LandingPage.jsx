@@ -10,16 +10,7 @@ const CLOUDS_TEXTURE_URL =
 const SPECULAR_TEXTURE_URL =
   'https://threejs.org/examples/textures/planets/earth_specular_2048.jpg'
 
-const CHINA = { name: 'China', flag: '\u{1F1E8}\u{1F1F3}', lat: 35.8617, lng: 104.1954, unlocked: true }
-
-const COUNTRIES = [
-  CHINA,
-  { name: 'Japan', flag: '\u{1F1EF}\u{1F1F5}', lat: 36.2048, lng: 138.2529, unlocked: false },
-  { name: 'France', flag: '\u{1F1EB}\u{1F1F7}', lat: 46.2276, lng: 2.2137, unlocked: false },
-  { name: 'Mexico', flag: '\u{1F1F2}\u{1F1FD}', lat: 23.6345, lng: -102.5528, unlocked: false },
-  { name: 'Egypt', flag: '\u{1F1EA}\u{1F1EC}', lat: 26.8206, lng: 30.8025, unlocked: false },
-  { name: 'Brazil', flag: '\u{1F1E7}\u{1F1F7}', lat: -14.235, lng: -51.9253, unlocked: false },
-]
+import { COUNTRIES } from './gameData'
 
 const UNLOCK_COST = 100
 const TRAVEL_DURATION_MS = 2200
@@ -83,9 +74,9 @@ function createStarField() {
   return new THREE.Points(geometry, material)
 }
 
-function createChinaMarker() {
+function createCountryMarker(country) {
   const group = new THREE.Group()
-  const direction = latLngToDirection(CHINA.lat, CHINA.lng).normalize()
+  const direction = latLngToDirection(country.lat, country.lng).normalize()
   group.position.copy(direction.multiplyScalar(GLOBE_RADIUS * 1.01))
 
   const hitMesh = new THREE.Mesh(
@@ -155,7 +146,6 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
   const mountRef = useRef(null)
   const triggerTravelRef = useRef(() => {})
   const onCountrySelectRef = useRef(onCountrySelect)
-  const onChinaMarkerClickRef = useRef(() => {})
 
   const triggerDiveRef = useRef(() => {})
 
@@ -189,9 +179,7 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
     }
   }
 
-  useEffect(() => {
-    onChinaMarkerClickRef.current = () => handleSelectCountry(CHINA)
-  })
+
 
   useEffect(() => {
     const mount = mountRef.current
@@ -300,12 +288,17 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
     const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial)
     scene.add(atmosphere)
 
-    const { group: chinaMarkerGroup, hitMesh, dot, rings } = createChinaMarker()
-    planetGroup.add(chinaMarkerGroup)
+    const markers = COUNTRIES.map(country => {
+      const marker = createCountryMarker(country)
+      marker.country = country
+      planetGroup.add(marker.group)
+      return marker
+    })
+    const hitMeshes = markers.map(m => m.hitMesh)
 
     const raycaster = new THREE.Raycaster()
     const pointerNdc = new THREE.Vector2()
-    let hovered = false
+    let hoveredMarker = null
 
     function updatePointer(event) {
       const rect = renderer.domElement.getBoundingClientRect()
@@ -317,16 +310,19 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
       if (travel || dive) return
       updatePointer(event)
       raycaster.setFromCamera(pointerNdc, camera)
-      hovered = raycaster.intersectObject(hitMesh).length > 0
-      renderer.domElement.style.cursor = hovered ? 'pointer' : 'auto'
+      const intersects = raycaster.intersectObjects(hitMeshes)
+      hoveredMarker = intersects.length > 0 ? intersects[0].object.parent : null
+      renderer.domElement.style.cursor = hoveredMarker ? 'pointer' : 'auto'
     }
 
     function handleClick(event) {
       if (travel || dive) return
       updatePointer(event)
       raycaster.setFromCamera(pointerNdc, camera)
-      if (raycaster.intersectObject(hitMesh).length > 0) {
-        onChinaMarkerClickRef.current()
+      const intersects = raycaster.intersectObjects(hitMeshes)
+      if (intersects.length > 0) {
+        const markerGroup = intersects[0].object.parent
+        handleSelectCountry(markerGroup.country)
       }
     }
 
@@ -427,12 +423,15 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
       deepSpace.rotation.x += 0.00004
 
       const t = performance.now() * 0.001
-      dot.scale.setScalar(hovered ? 0.52 : 0.4 + Math.sin(t * 3) * 0.05)
-      dot.material.opacity = hovered ? 1 : 0.7 + Math.sin(t * 3) * 0.2
-      rings.forEach((ring, i) => {
-        const phase = (t * 0.5 + i * 0.5) % 1
-        ring.scale.setScalar(0.4 + phase * (hovered ? 2.6 : 1.8))
-        ring.material.opacity = (1 - phase) * (hovered ? 0.85 : 0.45)
+      markers.forEach(m => {
+        const isHovered = hoveredMarker === m.group
+        m.dot.scale.setScalar(isHovered ? 0.52 : 0.4 + Math.sin(t * 3) * 0.05)
+        m.dot.material.opacity = isHovered ? 1 : 0.7 + Math.sin(t * 3) * 0.2
+        m.rings.forEach((ring, i) => {
+          const phase = (t * 0.5 + i * 0.5) % 1
+          ring.scale.setScalar(0.4 + phase * (isHovered ? 2.6 : 1.8))
+          ring.material.opacity = (1 - phase) * (isHovered ? 0.85 : 0.45)
+        })
       })
 
       if (travel) stepTravel(performance.now())
@@ -485,8 +484,8 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
 
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_center,_transparent_40%,_rgba(0,0,0,0.55)_100%)]" />
 
-      <header className="absolute top-0 left-0 right-0 flex items-center justify-between p-6 pointer-events-none">
-        <div className="pointer-events-auto">
+      <header className="absolute top-0 left-0 right-0 flex flex-wrap items-center justify-between gap-4 p-6 pointer-events-none">
+        <div className="pointer-events-auto shrink-0">
           <h1 className="font-display text-3xl font-extrabold tracking-wide drop-shadow-md">
             <span className="text-white">Semantic</span>
           </h1>
@@ -495,21 +494,16 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
           </p>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-full bg-[#1F2937] border-2 border-[#37464F] px-4 py-2.5 shadow-md">
-            <span className="text-lg">{'\u{1F30D}'}</span>
-            <span className="font-display text-sm font-extrabold text-white">
+        <div className="pointer-events-auto flex flex-wrap justify-end items-center gap-4">
+          <div className="flex h-[46px] items-center justify-center gap-2 rounded-2xl border-2 border-[#37464F] bg-[#1F2937] px-4 font-display text-sm font-extrabold uppercase tracking-widest text-white shadow-md">
+            <span>
               Level {unlockedCountries.length}
             </span>
           </div>
           
-          <div className="flex items-center gap-2.5 rounded-full bg-[#1F2937] border-2 border-[#37464F] px-5 py-2.5 shadow-md">
-            <CoinIcon />
-            <span className="font-display text-xl font-extrabold tabular-nums text-white">
-              {tokens}
-            </span>
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-              tokens
+          <div className="flex h-[46px] items-center justify-center rounded-2xl border-2 border-[#37464F] bg-[#1F2937] px-4 font-display text-sm font-extrabold uppercase tracking-widest text-white shadow-md tabular-nums">
+            <span>
+              {tokens} TOKENS
             </span>
           </div>
         </div>
@@ -530,17 +524,19 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
                 onClick={() => handleSelectCountry(country)}
                 title={isUnlocked ? `Travel to ${country.name}` : `Unlock ${country.name} (100 tokens)`}
                 className={
-                  'w-full flex items-center justify-between rounded-2xl px-3 py-2.5 text-left transition-all duration-150 border-2 ' +
+                  'w-full flex items-center justify-between rounded-2xl px-3 py-2 text-left transition-all font-display text-sm font-extrabold uppercase tracking-widest border-2 shadow-md ' +
                   (isUnlocked
-                    ? 'bg-[#58CC02] hover:bg-[#61D908] active:translate-y-0.5 cursor-pointer text-white font-extrabold border-[#46A302] border-b-4 active:border-b-2' +
+                    ? 'bg-[#40DF01] hover:bg-[#61D908] cursor-pointer text-white border-white/30 border-2' +
                       (glowCountry === country.name ? ' animate-country-glow' : '')
-                    : 'bg-[#1F2937] hover:bg-[#28323c] active:translate-y-0.5 text-gray-300 cursor-pointer border-[#37464F] border-b-4 active:border-b-2')
+                    : 'bg-[#1F2937] hover:bg-[#28323c] text-gray-300 cursor-pointer border-[#37464F] border-2')
                 }
               >
-                <span className="flex items-center gap-2.5">
-                  <span className={'text-xl transition-opacity' + (isUnlocked ? '' : ' opacity-50 grayscale')}>
-                    {country.flag}
-                  </span>
+                <span className="flex items-center gap-3">
+                  <img
+                    src={`https://flagcdn.com/${country.code ?? 'us'}.svg`}
+                    alt={country.name}
+                    className={'w-6 rounded-sm shadow-sm transition-opacity ' + (isUnlocked ? '' : 'opacity-50 grayscale')}
+                  />
                   <span className="font-display font-extrabold">{country.name}</span>
                 </span>
                 {isUnlocked ? (
@@ -609,6 +605,10 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
       >
         Reset
       </button>
+
+      <div className="absolute bottom-6 left-6 pointer-events-none text-white/40 text-xs font-display font-medium tracking-wide">
+        &copy; 2026 Semantic. All rights reserved.
+      </div>
     </div>
   )
 }

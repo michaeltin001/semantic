@@ -102,9 +102,12 @@ function App() {
   }
 
   if (activeScenario) {
+    const countryData = COUNTRIES.find((c) => c.name === selectedCountry)
     return (
       <ScenarioRunner 
         scenario={activeScenario}
+        langCode={countryData?.langCode || 'zh'}
+        country={selectedCountry}
         onEndScenario={async (result) => {
           let updatedCompleted = completedScenarios;
           if (result?.completed && result?.id && !completedScenarios.includes(result.id)) {
@@ -144,11 +147,11 @@ function App() {
   }
 
   if (selectedCountry) {
-    const flag = COUNTRIES.find((c) => c.name === selectedCountry)?.flag ?? ''
+    const countryData = COUNTRIES.find((c) => c.name === selectedCountry)
     return (
       <ScenariosPage
         country={selectedCountry}
-        flag={flag}
+        code={countryData?.code || 'cn'}
         completedScenarios={completedScenarios}
         onBack={() => setSelectedCountry(null)}
         onScenarioStart={(scenario) => setActiveScenario(scenario)}

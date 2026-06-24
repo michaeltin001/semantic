@@ -18,7 +18,7 @@ const blobToBase64 = (blob) => {
   });
 };
 
-export default function MicrophoneRecorder({ onRecordingComplete, disabled }) {
+export default function MicrophoneRecorder({ onRecordingComplete, disabled, langCode = 'zh' }) {
   const [isRecording, setIsRecording] = useState(false);
   const [liveText, setLiveText] = useState('');
   const [status, setStatus] = useState('idle');
@@ -60,7 +60,7 @@ export default function MicrophoneRecorder({ onRecordingComplete, disabled }) {
       const response = await fetch(`${API}/api/voice/projects`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Temp Gameplay ' + new Date().getTime(), sourceLang: 'zh' }),
+        body: JSON.stringify({ name: 'Temp Gameplay ' + new Date().getTime(), sourceLang: langCode }),
       });
       const data = await response.json();
       const pid = data.project.id;
@@ -183,7 +183,7 @@ export default function MicrophoneRecorder({ onRecordingComplete, disabled }) {
           className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all touch-none ${
             disabled ? 'bg-[#37464F] opacity-50 cursor-not-allowed' :
             isRecording 
-              ? 'bg-[#1CB0F6] shadow-[0_0_20px_rgba(28,176,246,0.6)] scale-110' 
+              ? 'bg-[#1CB0F6] shadow-[0_0_20px_rgba(109, 33, 255,0.6)] scale-110' 
               : 'bg-[#1F2937] border-2 border-[#37464F] border-b-4 hover:bg-[#28323c] active:border-b-2 active:translate-y-0.5'
           }`}
         >
