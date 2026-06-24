@@ -488,8 +488,7 @@ export default function LandingPage({ tokens, unlockedCountries = ["China"], glo
       <header className="absolute top-0 left-0 right-0 flex items-center justify-between p-6 pointer-events-none">
         <div className="pointer-events-auto">
           <h1 className="font-display text-3xl font-extrabold tracking-wide drop-shadow-md">
-            <span className="text-white">Lang</span>
-            <span className="text-[#58CC02]">tour</span>
+            <span className="text-white">Semantic</span>
           </h1>
           <p className="text-xs text-white/60 font-bold tracking-[0.2em] uppercase">
             Speak the world

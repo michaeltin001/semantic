@@ -12,7 +12,7 @@ app.use(express.json({ limit: '200mb' }));
 async function startServer() {
   process.on('unhandledRejection', (e) => console.error('UNHANDLED:', e));
   const httpServer = app.listen(PORT, () => {
-    console.log(`Langtour API running at http://localhost:${PORT}`);
+    console.log(`Semantic API running at http://localhost:${PORT}`);
   });
 
   mountVoiceRoutes(app, httpServer);

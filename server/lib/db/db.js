@@ -1,6 +1,13 @@
+import fs from 'fs';
+import path from 'path';
 import Database from 'better-sqlite3';
 import { DB_PATH } from '../config.js';
 import { STARTER_VOCAB } from '../srs/onboarding_vocab.js';
+
+const dbDir = path.dirname(DB_PATH);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');

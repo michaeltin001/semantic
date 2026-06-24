@@ -1,24 +1,24 @@
 {
-  "name": "langtour",
+  "name": "semantic",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "concurrently \"npm run dev --prefix node\" \"npm run dev --prefix client\""
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\""
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/darthvader58/langtour.git"
+    "url": "git+https://github.com/michaeltin001/semantic.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/darthvader58/langtour/issues"
+    "url": "https://github.com/michaeltin001/semantic/issues"
   },
-  "homepage": "https://github.com/darthvader58/langtour#readme",
+  "homepage": "https://github.com/michaeltin001/semantic#readme",
   "devDependencies": {
     "concurrently": "^10.0.3"
   }

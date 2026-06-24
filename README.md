@@ -1,4 +1,4 @@
-# Langtour
+# Semantic
 
 This project is a bilingual Speech-to-Text (STT) and translation web application. It uses a **React (Vite)** frontend and an **Express (Node.js)** backend, powered by the **Deepgram API** for live transcription and the **Google Gemini API** for translation.
 
@@ -12,14 +12,14 @@ This project is a bilingual Speech-to-Text (STT) and translation web application
 If you are cloning this project from GitHub on a completely fresh machine, follow these steps to get everything working:
 
 ### 1. Install Dependencies
-Because this project is structured with a separate frontend (`client/`) and backend (`node/`), you must install the dependencies in three different folders:
+Because this project is structured with a separate frontend (`client/`) and backend (`server/`), you must install the dependencies in three different folders:
 
 ```bash
 # 1. Install the root dependencies (for the 'concurrently' tool)
 npm install
 
 # 2. Install the backend dependencies
-cd node
+cd server
 npm install
 
 # 3. Install the frontend dependencies
